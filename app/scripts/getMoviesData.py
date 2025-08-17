@@ -17,7 +17,7 @@ class Movies:
             self.genres = json.load(f)
 
 
-    def getGenreVectors(self, movieGenres:list):
+    def get_genre_vectors(self, movieGenres:list):
         vector = []
         for genre in self.genres['genres']:
             if genre['id'] in movieGenres:
@@ -58,7 +58,7 @@ class Movies:
                     data = response.json()
                     for result in data['results']:
                         genre_ids = result['genre_ids']
-                        movieVectors = self.getGenreVectors(genre_ids)
+                        movieVectors = self.get_genre_vectors(genre_ids)
                         result['genre_vector'] = movieVectors
 
                     total_results.extend(data['results'])

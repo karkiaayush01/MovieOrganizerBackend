@@ -17,3 +17,13 @@ class ListItem(BaseModel):
     status: Literal['Plan To Watch', 'Completed', 'Watching']
     startDate: Optional[date] = None
     endDate: Optional[date] = None
+
+#Model that contains an instance of genre
+class Genre(BaseModel):
+    genre_id: int
+    genre_name: str
+
+#Model for a preference request
+class PreferenceRequest(BaseModel):
+    firebase_user_id: str
+    preferences: list[Genre]

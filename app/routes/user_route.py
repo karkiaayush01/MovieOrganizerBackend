@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.auth.auth import get_current_user
-from app.models.models import ListItem, UserData
+from app.models.models import *;
 from app.utils.db_util import get_db
+from app.core.movies import get_genre_vectors
 from bson import ObjectId
 import numpy as np
 from datetime import datetime, timezone
@@ -35,13 +36,15 @@ def add_movie_to_list(data: ListItem, user_info = Depends(get_current_user)):
 
         #Calcuations and logic
         movie_genre_vector = np.array(movie_data['genre_vector'])
-        user_average_genre_vector = np.array(user_data['genrePreferences'])
-        total_movies_in_list = user_data['moviesInList']
+        user_average_genre_vector = np.array(user_data.get('genrePreferences'), get_genre_vectors([]))
+        total_movies_in_list = user_data.get('moviesInList', [])
+        movies_count_in_current_preference = user_data.get('moviesCountInCurrentPreference', 0)
         total_movies_count = len(total_movies_in_list)
 
         #Generating new user preference vector
         new_user_vector = list(((user_average_genre_vector * total_movies_count) + movie_genre_vector) / (total_movies_count + 1))
         total_movies_in_list.append(data.movie_id)
+        movies_count_in_current_preference += 1
 
         #Updating MongoDB
         users_coll.update_one(
@@ -49,7 +52,8 @@ def add_movie_to_list(data: ListItem, user_info = Depends(get_current_user)):
             {
                 '$set': {
                     'genrePreferences': new_user_vector,
-                    'moviesInList': total_movies_in_list
+                    'moviesInList': total_movies_in_list,
+                    'moviesCountInCurrentPreference': movies_count_in_current_preference
                 }
             }
         )
@@ -125,6 +129,72 @@ def add_user_data(data: UserData):
             'sign_up_method': data.sign_up_method,
             'createdAt': datetime.now(timezone.utc)
         })
+
+        return {"message": "Added user data successfully"}
     except Exception as e:
         print(f"An error occurred: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: An Error Occurred.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: {str(e)}")
+    
+@router.post('/update_user_preferences')
+def update_user_preferences(data: PreferenceRequest, user_info=Depends(get_current_user)):
+    try:
+        db = get_db()
+        users_coll = db['users'] 
+
+        user = users_coll.find_one({
+            "firebase_user_id": data.firebase_user_id
+        })
+
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        genre_ids = [genre.genre_id for genre in data.preferences]
+        updated_preference = get_genre_vectors(genre_ids)
+        movies_count_in_current_preference = 0
+
+        #Override the previoud user preference with a fresh start
+        users_coll.update_one(
+            {"firebase_user_id": data.firebase_user_id}, 
+            {
+                "$set": {
+                    "initialPreference": genre_ids,
+                    "genrePreferences": updated_preference,
+                    "moviesCountInCurrentPreference": movies_count_in_current_preference
+                }
+            }
+        )
+
+        return {"message": "Success: Preference Updated Successfully"}
+    except HTTPException:
+        # Reraise HTTPExceptions
+        raise
+    except Exception as e:
+        print(str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: {str(e)}")
+    
+@router.get('/get_user_preferences/{firebase_user_id}')
+def get_user_preferences(firebase_user_id:str, user_info=Depends(get_current_user)):
+    try:
+        preferences = []
+        db = get_db()
+        users_coll = db['users']
+        genres_coll = db['genres']
+
+        user = users_coll.find_one({
+            'firebase_user_id': firebase_user_id
+        })
+
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        else:
+            preference_ids = user.get('initialPreference', [])
+            for id in preference_ids:
+                genre = genres_coll.find_one({'id': id})
+                preferences.append({'id': id, 'name': genre['name']})
+        
+        return {"preferences": preferences}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: {str(e)}")

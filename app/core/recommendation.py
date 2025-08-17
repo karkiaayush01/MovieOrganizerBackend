@@ -21,7 +21,6 @@ def generate_movie_recommendations(user_vector, exclude=[]):
 
         count = 1
         for movie in all_movies:
-            print(f"movie: {movie['id']}")
             count+=1
             movie_vec = np.array(movie['genre_vector']).reshape(1, -1)
             similarity_index = cosine_similarity(user_vec, movie_vec)[0][0]
@@ -30,7 +29,13 @@ def generate_movie_recommendations(user_vector, exclude=[]):
         # Sort in descending order (most similar first)
         similarity.sort(key=lambda x: x['similarity_index'], reverse=True)
 
-        return similarity[:30]
+        limited = similarity[:30]
+
+        # Add rank (1-based)
+        for rank, item in enumerate(limited, start=1):
+            item["rank"] = rank
+            
+        return limited
         
     except Exception as e:
         print(f"An error occurred: {str(e)}")
