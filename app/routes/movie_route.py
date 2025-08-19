@@ -26,7 +26,7 @@ def generate_recommendation(firebase_user_id: str, user_data=Depends(get_current
         #Getting user data
         user_data = users_coll.find_one({'firebase_user_id': firebase_user_id})
         user_vector = user_data['genrePreferences']
-        users_movie_list = user_data['moviesInList']
+        users_movie_list = user_data.get('moviesInList', [])
         
         #Getting Recommendation
         top_recommendations = generate_movie_recommendations(user_vector, users_movie_list)
@@ -48,11 +48,13 @@ def generate_recommendation(firebase_user_id: str, user_data=Depends(get_current
                     genre_obj = next((g for g in genres if g['id'] == genre_id), None)
                     if genre_obj:
                         movie_genres.append(genre_obj['name'])
-                movie_data['genres'] = movie_genres
+                movie_data['genreNames'] = movie_genres
+                print(movie_data)
                 movies.append(movie_data)
 
         return {'data': movies}
     except Exception as e:
+        print(str(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: An error occurred: {str(e)}")                                    
 
 @router.get('/get_popular_titles')

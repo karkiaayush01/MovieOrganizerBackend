@@ -35,6 +35,12 @@ def get_extra_movie_details():
                 
                 movies_coll.replace_one({"id": id}, movie)
                 count+=1
+            else:
+                if(response.status_code==404):
+                    print(f"404, skipping {id}")
+                    count+=1
+                else:
+                    print(f"Error: {response.status_code} {response}")
         except Exception as e:
             print(f"An error has occurred: {str(e)}")
 
