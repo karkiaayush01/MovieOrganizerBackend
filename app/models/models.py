@@ -12,11 +12,15 @@ class UserData(BaseModel):
 
 #Model that contains an instance of a movie in a list
 class ListItem(BaseModel):
-    user_id: str
-    movie_id: str
+    firebase_user_id: str
+    movie_id: int
     status: Literal['Plan To Watch', 'Completed', 'Watching']
     startDate: Optional[date] = None
     endDate: Optional[date] = None
+
+class RemoveFromWatchListRequest(BaseModel):
+    firebase_user_id: str
+    movie_id: int
 
 #Model that contains an instance of genre
 class Genre(BaseModel):
@@ -27,3 +31,9 @@ class Genre(BaseModel):
 class PreferenceRequest(BaseModel):
     firebase_user_id: str
     preferences: list[Genre]
+
+#Model for a movie rating request
+class RatingRequest(BaseModel):
+    firebase_user_id: str
+    movie_id: int
+    rating: float
