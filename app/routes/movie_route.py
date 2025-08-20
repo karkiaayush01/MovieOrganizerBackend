@@ -57,7 +57,6 @@ def generate_recommendation(firebase_user_id: str, user_data=Depends(get_current
                         if genre_obj:
                             movie_genres.append(genre_obj['name'])
                     movie_data['genreNames'] = movie_genres
-                    print(movie_data)
                     movies.append(movie_data)
         
             users_coll.update_one(
@@ -114,7 +113,7 @@ def get_popular_titles(user_data=Depends(get_current_user)):
                             genre_obj = next((g for g in genres if g['id'] == genre_id), None)
                             if genre_obj:
                                 movie_genres.append(genre_obj['name'])
-                        movie_data['genres'] = movie_genres
+                        movie_data['genreNames'] = movie_genres
                         movies.append(movie_data)
                         
                 return {"data": movies}

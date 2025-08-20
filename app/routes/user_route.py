@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from app.auth.auth import get_current_user
 from app.models.models import *;
 from app.utils.db_util import get_db
@@ -7,6 +7,7 @@ from bson import ObjectId
 import numpy as np
 from datetime import datetime, timezone
 from app.core.movies import get_all_genres
+from app.core.movies import generate_recommendation_background
 
 _SHOW_NAME = 'user'
 
@@ -17,7 +18,7 @@ router = APIRouter(
 )
 
 @router.post('/add_movie_to_list')
-def add_movie_to_list(data: ListItem, user_info = Depends(get_current_user)):
+def add_movie_to_list(data: ListItem, background_tasks: BackgroundTasks, user_info = Depends(get_current_user)):
     try:
         #Getting database and required collections
         db = get_db()
@@ -69,11 +70,14 @@ def add_movie_to_list(data: ListItem, user_info = Depends(get_current_user)):
                 'firebase_user_id': data.firebase_user_id,
                 'movie_id': data.movie_id,
                 'type': data.status,
-                'startDate': data.startDate.isoformat(),
-                'endDate': data.endDate.isoformat(),
+                'startDate': data.startDate.isoformat() if data.startDate else None,
+                'endDate': data.endDate.isoformat() if data.endDate else None,
                 'lastUpdated': datetime.now(timezone.utc)
             }
         )
+
+        print("Calling generate recommendation in background")
+        background_tasks.add_task(generate_recommendation_background, data.firebase_user_id)
 
         return {"message": "Movie added to list successfully"}
 
@@ -228,6 +232,28 @@ def get_watchlist(firebase_user_id: str, user_info = Depends(get_current_user)):
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: An error occurred {str(e)}")
+    
+@router.get("/find_movie_in_watchlist/{firebase_user_id}/{movie_id}")
+def find_movie_in_watchlist(firebase_user_id: str, movie_id: int, user_info = Depends(get_current_user)):
+    try:
+        db = get_db()
+        watchlist_coll = db['watchlist']
+
+        item = watchlist_coll.find_one({
+            'firebase_user_id': firebase_user_id,
+            'movie_id': movie_id
+        })
+
+        if item is not None:
+            item['_id'] = str(item['_id'])
+
+        return {'data': item}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: An error occurred {str(e)}")
+    
     
 @router.post('/add_user_data')
 def add_user_data(data: UserData):
