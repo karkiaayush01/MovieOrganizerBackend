@@ -349,3 +349,59 @@ def get_user_preferences(firebase_user_id:str, user_info=Depends(get_current_use
     except Exception as e:
         print(str(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: {str(e)}")
+    
+@router.get('/get_user_statistics/{firebase_user_id}')
+def get_user_statistics(firebase_user_id: str, user_info=Depends(get_current_user)):
+    try:
+        db = get_db()
+        watchlist_coll = db['watchlist']
+        movies_coll = db['movies']
+        watchedRuntime = 0
+
+        watchlist_data_completed = list(watchlist_coll.find(
+            {
+                'firebase_user_id': firebase_user_id,
+                'type': 'Completed'
+            }
+        ))
+
+        watchlist_count_completed = len(watchlist_data_completed)
+
+        watchlist_count_planned = watchlist_coll.count_documents(
+            {
+                'firebase_user_id': firebase_user_id,
+                'type': 'Plan To Watch'
+            }
+        )
+
+        watchlist_count_watching = watchlist_coll.count_documents(
+            {
+                'firebase_user_id': firebase_user_id,
+                'type': 'Watching'
+            }
+        )
+
+        for item in watchlist_data_completed:
+            movie_id = item['movie_id']
+            movie_data = movies_coll.find_one({'id': movie_id})
+            watchedRuntime += movie_data['runtime']
+        
+        return {'data': {
+            'minutes_watched': watchedRuntime,
+            'completed_count': watchlist_count_completed,
+            'planned_count': watchlist_count_planned,
+            'watching_count': watchlist_count_watching
+        }}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error: {str(e)}")
+
+    
+
+    
+
+    
+
+
