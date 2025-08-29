@@ -5,9 +5,9 @@ from app.routes.user_route import router as user_router
 
 app = FastAPI()
 
-from .env_loader import load_env
+# from .env_loader import load_env
 
-load_env()
+# load_env()
 
 app.add_middleware( 
     CORSMiddleware,
